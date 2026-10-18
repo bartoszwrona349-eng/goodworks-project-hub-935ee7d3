@@ -54,7 +54,7 @@ function NewRequest() {
     enabled: slots.length > 0,
     queryFn: async () => {
       const [{ data: v }, { data: busy }] = await Promise.all([
-        supabase.from("venues").select("id,name,capacity,equipment").order("capacity"),
+        supabase.from("venues").select("id,name,capacity,equipment,rules").order("capacity"),
         supabase.rpc("get_busy_slots", { _from: minStart!.toISOString(), _to: maxEnd!.toISOString() }),
       ]);
       const taken = new Set(
@@ -84,12 +84,17 @@ function NewRequest() {
   });
   const [busy, setBusy] = useState(false);
   const [rodo, setRodo] = useState(false);
+  const [rulesOk, setRulesOk] = useState(false);
+  const venueRules = chosenVenue?.rules?.trim() || "";
+  const rulesNeeded = venueRules.length > 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!chosen || !user || slots.length === 0) return;
     if (!rodo) { toast.error("Zaznacz zapoznanie się z klauzulą informacyjną"); return; }
+    if (rulesNeeded && !rulesOk) { toast.error("Zaakceptuj regulamin obiektu"); return; }
     const rodo_accepted_at = new Date().toISOString();
+    const rules_accepted_at = rulesNeeded ? rodo_accepted_at : null;
     setBusy(true);
     const request_id = crypto.randomUUID();
     const { data, error } = await supabase
@@ -226,8 +231,24 @@ function NewRequest() {
             <span>Zapoznałem/am się z klauzulą informacyjną dotyczącą przetwarzania danych osobowych. *</span>
           </label>
         </fieldset>
+        {rulesNeeded && (
+          <fieldset className="grid gap-3 rounded-md border bg-muted/40 p-4">
+            <legend className="px-1 text-sm font-medium">Regulamin obiektu</legend>
+            <div className="max-h-56 overflow-y-auto whitespace-pre-line text-sm text-muted-foreground">{venueRules}</div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                required
+                className="mt-0.5 h-4 w-4 accent-primary"
+                checked={rulesOk}
+                onChange={(e) => setRulesOk(e.target.checked)}
+              />
+              <span>Zapoznałem/am się z regulaminem i akceptuję jego postanowienia. *</span>
+            </label>
+          </fieldset>
+        )}
         <div className="flex gap-3">
-          <Button type="submit" disabled={busy || !chosen || !rodo}>Wyślij wniosek</Button>
+          <Button type="submit" disabled={busy || !chosen || !rodo || (rulesNeeded && !rulesOk)}>Wyślij wniosek</Button>
           <Button type="button" variant="outline" onClick={() => history.back()}>Wróć</Button>
         </div>
       </form>
