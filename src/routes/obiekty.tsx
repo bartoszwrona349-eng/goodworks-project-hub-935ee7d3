@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useIsAdmin } from "@/lib/session";
@@ -57,14 +57,42 @@ function VenuesPage() {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [existingImage, setExistingImage] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState("");
   const [description, setDescription] = useState("");
   const [equipment, setEquipment] = useState("");
+  const [rules, setRules] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function addVenue(e: React.FormEvent) {
+  function resetForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setExistingImage(null);
+    setName("");
+    setCapacity("");
+    setDescription("");
+    setEquipment("");
+    setRules("");
+    setPhoto(null);
+  }
+
+  function startEdit(v: NonNullable<typeof data>[number]) {
+    setEditingId(v.id);
+    setExistingImage(v.image_url);
+    setName(v.name);
+    setCapacity(String(v.capacity));
+    setDescription(v.description ?? "");
+    setEquipment((v.equipment ?? []).join(", "));
+    setRules(v.rules ?? "");
+    setPhoto(null);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function saveVenue(e: React.FormEvent) {
     e.preventDefault();
     const cap = parseInt(capacity, 10);
     if (!name.trim() || !cap || cap < 1) {
@@ -73,13 +101,13 @@ function VenuesPage() {
     }
     setSaving(true);
     try {
-      let imagePath: string | null = null;
+      let imagePath: string | null = existingImage;
       if (photo) {
         imagePath = `${crypto.randomUUID()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
         const { error: upErr } = await supabase.storage.from("venue-images").upload(imagePath, photo);
         if (upErr) throw upErr;
       }
-      const { error } = await supabase.from("venues").insert({
+      const payload = {
         name: name.trim(),
         capacity: cap,
         description: description.trim() || null,
@@ -87,19 +115,18 @@ function VenuesPage() {
           .split(/[,\n]/)
           .map((s) => s.trim())
           .filter(Boolean),
+        rules: rules.trim() || null,
         image_url: imagePath,
-      });
+      };
+      const { error } = editingId
+        ? await supabase.from("venues").update(payload).eq("id", editingId)
+        : await supabase.from("venues").insert(payload);
       if (error) throw error;
-      toast.success("Obiekt dodany.");
-      setShowForm(false);
-      setName("");
-      setCapacity("");
-      setDescription("");
-      setEquipment("");
-      setPhoto(null);
+      toast.success(editingId ? "Zmiany zapisane." : "Obiekt dodany.");
+      resetForm();
       queryClient.invalidateQueries({ queryKey: ["venues-full"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Nie udało się dodać obiektu.");
+      toast.error(err instanceof Error ? err.message : "Nie udało się zapisać obiektu.");
     } finally {
       setSaving(false);
     }
@@ -122,14 +149,15 @@ function VenuesPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-4xl font-semibold">Obiekty</h1>
         {isAdmin && (
-          <Button variant={showForm ? "outline" : "default"} onClick={() => setShowForm((s) => !s)}>
+          <Button variant={showForm ? "outline" : "default"} onClick={() => (showForm ? resetForm() : setShowForm(true))}>
             <Plus className="size-4" /> {showForm ? "Anuluj" : "Dodaj obiekt"}
           </Button>
         )}
       </div>
 
       {isAdmin && showForm && (
-        <form onSubmit={addVenue} className="mb-8 space-y-4 rounded-lg border bg-card p-6">
+        <form onSubmit={saveVenue} className="mb-8 space-y-4 rounded-lg border bg-card p-6">
+          <h2 className="text-xl font-semibold">{editingId ? `Edycja: ${name}` : "Nowy obiekt"}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="v-name">Nazwa</Label>
@@ -154,12 +182,25 @@ function VenuesPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="v-photo">Zdjęcie</Label>
+            <Label htmlFor="v-rules">Regulamin obiektu</Label>
+            <Textarea
+              id="v-rules"
+              value={rules}
+              onChange={(e) => setRules(e.target.value)}
+              rows={6}
+              placeholder="Wnioskodawca będzie musiał zaakceptować regulamin przy składaniu wniosku. Pozostaw puste, jeśli obiekt nie ma regulaminu."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="v-photo">{editingId && existingImage ? "Zmień zdjęcie" : "Zdjęcie"}</Label>
             <Input id="v-photo" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
           </div>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Zapisywanie…" : "Zapisz obiekt"}
-          </Button>
+          <div className="flex gap-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Zapisywanie…" : editingId ? "Zapisz zmiany" : "Zapisz obiekt"}
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>Anuluj</Button>
+          </div>
         </form>
       )}
 
@@ -170,9 +211,14 @@ function VenuesPage() {
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-2xl font-semibold">{v.name}</h2>
               {isAdmin && (
-                <Button variant="ghost" size="icon" onClick={() => deleteVenue(v.id, v.name)} aria-label={`Usuń ${v.name}`}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
+                <div className="flex">
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(v)} aria-label={`Edytuj ${v.name}`}>
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => deleteVenue(v.id, v.name)} aria-label={`Usuń ${v.name}`}>
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
               )}
             </div>
             {v.description && <p className="text-sm text-muted-foreground">{v.description}</p>}
