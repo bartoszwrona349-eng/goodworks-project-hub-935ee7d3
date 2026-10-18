@@ -71,6 +71,13 @@
       "when": 1792322118769,
       "tag": "0009_noop_apply_repo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792322301695,
+      "tag": "0010_bookings_rodo_consent",
+      "breakpoints": true
     }
   ]
 }

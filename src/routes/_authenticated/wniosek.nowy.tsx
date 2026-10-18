@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RODO_POINTS, RODO_RIGHTS, RODO_TITLE } from "@/lib/rodo";
 
 type S = { slots: string; venue?: string | undefined; n?: number | undefined };
 
@@ -82,10 +83,13 @@ function NewRequest() {
     kind: "request",
   });
   const [busy, setBusy] = useState(false);
+  const [rodo, setRodo] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!chosen || !user || slots.length === 0) return;
+    if (!rodo) { toast.error("Zaznacz zapoznanie się z klauzulą informacyjną"); return; }
+    const rodo_accepted_at = new Date().toISOString();
     setBusy(true);
     const request_id = crypto.randomUUID();
     const { data, error } = await supabase
@@ -99,6 +103,7 @@ function NewRequest() {
           venue_id: chosen,
           user_id: user.id,
           request_id,
+          rodo_accepted_at,
           start_at: x.start.toISOString(),
           end_at: x.end.toISOString(),
           status: form.kind === "event" ? "approved" : "pending",
@@ -196,8 +201,33 @@ function NewRequest() {
           </div>
         </fieldset>
         <Field label="Opis" id="ds"><Textarea id="ds" rows={4} value={form.description} onChange={set("description")} /></Field>
+        <fieldset className="grid gap-3 rounded-md border bg-muted/40 p-4">
+          <legend className="px-1 text-sm font-medium">{RODO_TITLE}</legend>
+          <ol className="max-h-56 list-decimal space-y-1 overflow-y-auto pl-5 text-sm text-muted-foreground">
+            {RODO_POINTS.map((p, i) => (
+              <li key={i}>
+                {p}
+                {i === 5 && (
+                  <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+                    {RODO_RIGHTS.map((r) => <li key={r}>{r}</li>)}
+                  </ol>
+                )}
+              </li>
+            ))}
+          </ol>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              required
+              className="mt-0.5 h-4 w-4 accent-primary"
+              checked={rodo}
+              onChange={(e) => setRodo(e.target.checked)}
+            />
+            <span>Zapoznałem/am się z klauzulą informacyjną dotyczącą przetwarzania danych osobowych. *</span>
+          </label>
+        </fieldset>
         <div className="flex gap-3">
-          <Button type="submit" disabled={busy || !chosen}>Wyślij wniosek</Button>
+          <Button type="submit" disabled={busy || !chosen || !rodo}>Wyślij wniosek</Button>
           <Button type="button" variant="outline" onClick={() => history.back()}>Wróć</Button>
         </div>
       </form>
