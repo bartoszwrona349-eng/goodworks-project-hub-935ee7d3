@@ -64,6 +64,7 @@ export type Database = {
           rejection_reason: string | null
           request_id: string
           rodo_accepted_at: string | null
+          rules_accepted_at: string | null
           start_at: string
           status: string
           user_id: string
@@ -85,6 +86,7 @@ export type Database = {
           rejection_reason?: string | null
           request_id?: string
           rodo_accepted_at?: string | null
+          rules_accepted_at?: string | null
           start_at: string
           status?: string
           user_id: string
@@ -106,6 +108,7 @@ export type Database = {
           rejection_reason?: string | null
           request_id?: string
           rodo_accepted_at?: string | null
+          rules_accepted_at?: string | null
           start_at?: string
           status?: string
           user_id?: string
@@ -178,6 +181,7 @@ export type Database = {
           id: string
           image_url: string | null
           name: string
+          rules: string | null
         }
         Insert: {
           capacity: number
@@ -187,6 +191,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name: string
+          rules?: string | null
         }
         Update: {
           capacity?: number
@@ -196,6 +201,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name?: string
+          rules?: string | null
         }
         Relationships: []
       }
