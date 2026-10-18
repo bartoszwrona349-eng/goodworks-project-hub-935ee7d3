@@ -109,6 +109,7 @@ function NewRequest() {
           user_id: user.id,
           request_id,
           rodo_accepted_at,
+          rules_accepted_at,
           start_at: x.start.toISOString(),
           end_at: x.end.toISOString(),
           status: form.kind === "event" ? "approved" : "pending",
